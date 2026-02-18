@@ -15,7 +15,13 @@ cp .env.example .env
 # edit .env (do NOT commit)
 docker compose up -d --build
 
+# smoke test
 curl -s http://127.0.0.1:8780/health
+```
+
+### Smoke test script
+```bash
+./scripts/smoke.sh
 ```
 
 ## Local dev
