@@ -1,127 +1,135 @@
-# JSON Error Handling Fix
+# JSON Error Handling Fix Summary
 
-## Problem
-The `/tasks` and `/cursor-runs` endpoints were returning HTML 401 "Unauthorized" responses instead of JSON when GitHub credentials were missing or invalid.
+## Issue
+The `/tasks` and `/cursor-runs` endpoints were returning HTML 401 Unauthorized responses instead of JSON when GitHub credentials were missing or invalid.
 
 ## Root Cause
-1. Endpoints returned 400 status with minimal error handling
-2. No try/catch around GitHub API calls
-3. Unhandled exceptions fell through to Express's default error handler (which returns HTML)
+- GitHub API calls were not wrapped in try/catch blocks
+- No global error handler middleware for consistent JSON responses
+- Endpoints returned HTTP 400 status which could trigger default Express HTML error pages
 
 ## Solution Implemented
 
-### Backend Changes (control-api/src/server.js)
+### 1. Backend API Changes (control-api/src/server.js)
 
-#### 1. Return 200 with Empty List When Not Configured
-```javascript
-// Before: res.status(400).json({ error: 'GitHub not configured' })
-// After:  res.json({ items: [], github_ok: false })
-```
+**GET /tasks**
+- ✅ Returns `{ items: [], github_ok: false }` when GitHub not configured (200 status)
+- ✅ Wrapped GitHub API calls in try/catch
+- ✅ Returns `{ items: [], github_ok: false, error: {...} }` on GitHub API errors
+- ✅ Returns `{ items: [...], github_ok: true }` on success
 
-#### 2. Wrap GitHub API Calls in Try/Catch
-```javascript
-try {
-  const issues = await octokit.issues.listForRepo(...);
-  res.json({ items: [...], github_ok: true });
-} catch (error) {
-  console.error('GitHub API error (tasks):', error.message);
-  res.json({ items: [], github_ok: false, error: { message: error.message } });
-}
-```
+**GET /cursor-runs**
+- ✅ Returns `{ items: [], github_ok: false }` when GitHub not configured (200 status)
+- ✅ Wrapped GitHub API calls in try/catch
+- ✅ Returns `{ items: [], github_ok: false, error: {...} }` on GitHub API errors
+- ✅ Returns `{ items: [...], github_ok: true }` on success
 
-#### 3. Global Error Handler Middleware
-```javascript
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ 
-    error: { 
-      message: err.message || 'Internal server error',
-      code: err.code || 'INTERNAL_ERROR'
-    } 
-  });
-});
-```
+**POST /tasks/cursor**
+- ✅ Wrapped GitHub API calls in try/catch
+- ✅ Returns JSON error with 500 status on failure
 
-### Frontend Changes
+**Global Error Handler**
+- ✅ Added Express error middleware that ensures JSON responses
+- ✅ Catches unhandled errors and returns `{ error: { message, code } }`
 
-#### 1. Tasks Page (dashboard/src/app/tasks/page.js)
-- Added `githubConfigured` check based on `data.github_ok`
-- Show warning banner when GitHub not configured
-- Update empty state message based on configuration status
+### 2. Frontend Changes
 
-#### 2. Cursor Runs Page (dashboard/src/app/cursor-runs/page.js)
-- Same pattern as tasks page
-- Warning banner for missing GitHub config
-- Context-aware empty states
+**Tasks Page (dashboard/src/app/tasks/page.js)**
+- ✅ Checks `github_ok` field in response
+- ✅ Shows warning banner when GitHub not configured
+- ✅ Shows appropriate empty state message
 
-### Documentation Changes (README.md)
+**Cursor Runs Page (dashboard/src/app/cursor-runs/page.js)**
+- ✅ Checks `github_ok` field in response
+- ✅ Shows warning banner when GitHub not configured
+- ✅ Shows appropriate empty state message
 
-Added comprehensive curl testing examples:
+### 3. Documentation & Testing
+
+**README.md**
+- ✅ Added API testing section with curl examples
+- ✅ Updated verification steps
+- ✅ Enhanced troubleshooting section
+
+**scripts/test-api.sh**
+- ✅ Created automated test script
+- ✅ Tests all endpoints return valid JSON
+- ✅ Validates acceptance criteria
+
+## Acceptance Test Results
+
+All endpoints now return valid JSON:
+
 ```bash
-# Always returns JSON (even with bad/missing credentials)
-curl -s http://127.0.0.1:8780/tasks | jq
-curl -s http://127.0.0.1:8780/cursor-runs | jq
-```
+# Test with no GitHub credentials
+curl -s http://127.0.0.1:8780/tasks | jq .
+# Returns: { "items": [], "github_ok": false }
 
-## Acceptance Tests
+curl -s http://127.0.0.1:8780/cursor-runs | jq .
+# Returns: { "items": [], "github_ok": false }
 
-Both commands now return valid JSON:
-
-### Without GitHub Configuration
-```bash
-$ curl -s http://127.0.0.1:8780/tasks | jq
-{
-  "items": [],
-  "github_ok": false
-}
-
-$ curl -s http://127.0.0.1:8780/cursor-runs | jq
-{
-  "items": [],
-  "github_ok": false
-}
-```
-
-### With Invalid GitHub Token
-```bash
-$ curl -s http://127.0.0.1:8780/tasks | jq
-{
-  "items": [],
-  "github_ok": false,
-  "error": {
-    "message": "Bad credentials"
-  }
-}
-```
-
-### With Valid GitHub Configuration
-```bash
-$ curl -s http://127.0.0.1:8780/tasks | jq
-{
-  "items": [
-    {
-      "id": 123,
-      "title": "Example task",
-      "url": "https://github.com/...",
-      "state": "open",
-      "created_at": "2026-02-18T...",
-      "updated_at": "2026-02-18T..."
-    }
-  ],
-  "github_ok": true
-}
+# Test with invalid credentials
+# Returns: { "items": [], "github_ok": false, "error": { "message": "..." } }
 ```
 
 ## Files Changed
-- `control-api/src/server.js` - Error handling + try/catch
+
+### Backend
+- `control-api/src/server.js` - Error handling, try/catch, github_ok field
+
+### Frontend
 - `dashboard/src/app/tasks/page.js` - GitHub config warning
 - `dashboard/src/app/cursor-runs/page.js` - GitHub config warning
-- `README.md` - Testing examples
 
-## Benefits
-1. ✅ **Always JSON**: No more HTML error responses
-2. ✅ **Graceful Degradation**: Dashboard works without GitHub
-3. ✅ **Clear Feedback**: Users see GitHub configuration warnings
-4. ✅ **Better DX**: curl examples in README for testing
-5. ✅ **Error Visibility**: Console logs for debugging
-6. ✅ **Minimal Diff**: Changes focused on error handling only
+### Documentation & Tests
+- `README.md` - API testing examples, troubleshooting
+- `scripts/test-api.sh` - Automated API test script
+- `JSON_FIX_SUMMARY.md` - This document
+
+## Behavior Changes
+
+### Before
+- Missing GitHub credentials → HTTP 400 with `{ "error": "GitHub not configured" }`
+- GitHub API errors → Unhandled exceptions → HTML error pages
+- Dashboard → Broken UI with error states
+
+### After
+- Missing GitHub credentials → HTTP 200 with `{ "items": [], "github_ok": false }`
+- GitHub API errors → HTTP 200 with `{ "items": [], "github_ok": false, "error": {...} }`
+- Dashboard → Shows clear warning banners + graceful empty states
+
+## Constraints Maintained
+- ✅ Minimal backend changes (focused on error handling)
+- ✅ Localhost-only bindings preserved
+- ✅ No authentication added
+- ✅ No secrets exposed to client
+
+## Testing Instructions
+
+1. **Test without GitHub credentials:**
+   ```bash
+   # Remove GitHub env vars from .env
+   docker compose down
+   docker compose up -d --build
+   ./scripts/test-api.sh
+   ```
+
+2. **Test with invalid credentials:**
+   ```bash
+   # Set invalid token in .env
+   GITHUB_TOKEN=ghp_invalid_token_here
+   docker compose restart
+   curl -s http://127.0.0.1:8780/tasks | jq
+   ```
+
+3. **Verify dashboard:**
+   - Open http://127.0.0.1:3006
+   - Check /tasks page shows yellow warning banner
+   - Check /cursor-runs page shows yellow warning banner
+   - Verify no error states, clean empty state messages
+
+## Commit History
+1. `fix: ensure all API endpoints return JSON (never HTML)`
+2. `test: add API test script for JSON response validation`
+
+All changes pushed to `oc/ui-control-center` branch.
