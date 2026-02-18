@@ -64,26 +64,23 @@ docker compose up -d --build
 docker compose ps
 # Expected: Both control-api and dashboard should be "Up"
 
-# Test API health
+# Quick API test
+./scripts/test-api.sh
+
+# Or test manually:
 curl -s http://127.0.0.1:8780/health | jq
 # Expected: {"status":"ok"}
 
-# Test API info endpoint
 curl -s http://127.0.0.1:8780/ | jq
 # Expected: JSON with gateway_connected, github_ok, repo, server_time
 
-# Test tasks endpoint (always returns JSON)
 curl -s http://127.0.0.1:8780/tasks | jq
 # Expected: {"items":[],"github_ok":false} (if GitHub not configured)
 # Expected: {"items":[...],"github_ok":true} (if GitHub configured)
 
-# Test cursor-runs endpoint (always returns JSON)
 curl -s http://127.0.0.1:8780/cursor-runs | jq
 # Expected: {"items":[],"github_ok":false} (if GitHub not configured)
 # Expected: {"items":[...],"github_ok":true} (if GitHub configured)
-
-# Run full smoke test (if available)
-./scripts/smoke.sh
 ```
 
 ### 4. Access Dashboard
