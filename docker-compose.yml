@@ -1,0 +1,31 @@
+services:
+  control-api:
+    build:
+      context: ./control-api
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "127.0.0.1:${CONTROL_API_PORT:-8780}:8780"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8780/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  dashboard:
+    build:
+      context: ./dashboard
+      args:
+        - NEXT_PUBLIC_CONTROL_API_BASE=${NEXT_PUBLIC_CONTROL_API_BASE:-http://127.0.0.1:8780}
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - NEXT_PUBLIC_CONTROL_API_BASE=${NEXT_PUBLIC_CONTROL_API_BASE:-http://127.0.0.1:8780}
+    ports:
+      - "127.0.0.1:${DASHBOARD_PORT:-3006}:3000"
+    depends_on:
+      control-api:
+        condition: service_healthy
