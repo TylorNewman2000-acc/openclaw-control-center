@@ -15,8 +15,18 @@ cp .env.example .env
 # edit .env (do NOT commit)
 docker compose up -d --build
 
+# Verify services are running
+docker compose ps
+
+# Test health endpoint
 curl -s http://127.0.0.1:8780/health
+# Expected output: {"status":"ok"}
+
+# Run full smoke test
+./scripts/smoke.sh
 ```
+
+Access the dashboard at `http://127.0.0.1:3006` (localhost-only, not publicly exposed).
 
 ## Local dev
 ```bash
