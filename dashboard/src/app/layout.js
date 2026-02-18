@@ -11,10 +11,10 @@ export default function RootLayout({ children }) {
           <header style={{ display: 'flex', gap: 12, alignItems: 'baseline', marginBottom: 16 }}>
             <div style={{ fontWeight: 700 }}>OpenClaw Control Center</div>
             <nav style={{ display: 'flex', gap: 12, fontSize: 14 }}>
-              <a href="/">Now</a>
+              <a href="/">Home</a>
               <a href="/tasks">Tasks</a>
+              <a href="/cursor-runs">Runs</a>
               <a href="/create">Create</a>
-              <a href="/news">News</a>
             </nav>
           </header>
           {children}

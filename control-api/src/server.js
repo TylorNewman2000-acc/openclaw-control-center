@@ -77,10 +77,15 @@ app.get('/health', (_req, res) => {
 });
 
 app.get('/', (_req, res) => {
+  const github_ok = !!(octokit && GITHUB_OWNER && GITHUB_REPO);
+  const repo = GITHUB_OWNER && GITHUB_REPO ? `${GITHUB_OWNER}/${GITHUB_REPO}` : null;
+  
   res.json({
-    gateway_url: GATEWAY_WS,
     gateway_connected: gatewayConnected,
     last_gateway_message_timestamp: lastGatewayMessageTs,
+    github_ok,
+    repo,
+    server_time: new Date().toISOString(),
   });
 });
 
@@ -92,13 +97,20 @@ app.get('/tasks', async (_req, res) => {
   const issues = await octokit.issues.listForRepo({
     owner: GITHUB_OWNER,
     repo: GITHUB_REPO,
-    state: 'open',
+    state: 'all',
     per_page: 20,
-    sort: 'created',
+    sort: 'updated',
     direction: 'desc',
   });
 
-  res.json({ items: issues.data.map(i => ({ id: i.number, title: i.title, url: i.html_url, created_at: i.created_at })) });
+  res.json({ 
+    items: issues.data.map(i => ({ 
+      title: i.title, 
+      url: i.html_url, 
+      state: i.state, 
+      updated_at: i.updated_at 
+    })) 
+  });
 });
 
 app.get('/cursor-runs', async (_req, res) => {
@@ -106,9 +118,7 @@ app.get('/cursor-runs', async (_req, res) => {
     return res.status(400).json({ error: 'GitHub not configured' });
   }
 
-  // Search PR issue comments for bcId-like strings.
-  // Heuristic: match `bcId` or `bcid` followed by separator and an id-like token.
-  const prs = await octokit.pulls.list({ owner: GITHUB_OWNER, repo: GITHUB_REPO, state: 'open', per_page: 20 });
+  const prs = await octokit.pulls.list({ owner: GITHUB_OWNER, repo: GITHUB_REPO, state: 'all', per_page: 20, sort: 'updated', direction: 'desc' });
 
   const results = [];
   for (const pr of prs.data) {
@@ -117,7 +127,12 @@ app.get('/cursor-runs', async (_req, res) => {
       const body = c.body || '';
       const matches = [...body.matchAll(/\b(bcId|bcid)\b\s*[:=]\s*([A-Za-z0-9_-]{6,})/g)];
       for (const m of matches) {
-        results.push({ pr: pr.html_url, comment: c.html_url, bcId: m[2], created_at: c.created_at });
+        results.push({ 
+          bcId: m[2], 
+          cursor_url: `https://cursor.com/agents?id=${m[2]}`,
+          pr_url: pr.html_url,
+          updated_at: c.updated_at 
+        });
       }
     }
   }
