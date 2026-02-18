@@ -50,6 +50,7 @@ export default async function TasksPage({ searchParams }) {
   }
 
   const tasks = data.items || [];
+  const githubConfigured = data.github_ok !== false;
   const openCount = tasks.filter(t => t.state === 'open').length;
   const closedCount = tasks.filter(t => t.state === 'closed').length;
 
@@ -74,6 +75,28 @@ export default async function TasksPage({ searchParams }) {
 
       <TasksFilter currentState={stateFilter} />
 
+      {!githubConfigured && (
+        <Card className="mt-6 bg-yellow-50 border-yellow-200">
+          <CardContent className="p-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center mr-4">
+                <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-yellow-900 mb-1">
+                  GitHub Not Configured
+                </h3>
+                <p className="text-sm text-yellow-800">
+                  Configure GITHUB_TOKEN, GITHUB_OWNER, and GITHUB_REPO in your .env file to enable task management.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="mt-6">
         {tasks.length === 0 ? (
           <CardContent>
@@ -83,12 +106,14 @@ export default async function TasksPage({ searchParams }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               }
-              title={`No ${stateFilter} tasks`}
-              description="Get started by creating a new task"
+              title={!githubConfigured ? 'GitHub not configured' : `No ${stateFilter} tasks`}
+              description={!githubConfigured ? 'Configure GitHub credentials to view tasks' : 'Get started by creating a new task'}
               action={
-                <Link href="/create">
-                  <Button variant="primary">Create Task</Button>
-                </Link>
+                githubConfigured && (
+                  <Link href="/create">
+                    <Button variant="primary">Create Task</Button>
+                  </Link>
+                )
               }
             />
           </CardContent>

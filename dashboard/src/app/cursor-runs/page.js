@@ -58,6 +58,7 @@ export default async function CursorRunsPage() {
   }
 
   const runs = data.items || [];
+  const githubConfigured = data.github_ok !== false;
 
   return (
     <div>
@@ -68,6 +69,28 @@ export default async function CursorRunsPage() {
         </p>
       </div>
 
+      {!githubConfigured && (
+        <Card className="mb-6 bg-yellow-50 border-yellow-200">
+          <CardContent className="p-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center mr-4">
+                <svg className="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-yellow-900 mb-1">
+                  GitHub Not Configured
+                </h3>
+                <p className="text-sm text-yellow-800">
+                  Configure GITHUB_TOKEN, GITHUB_OWNER, and GITHUB_REPO in your .env file to view cursor runs.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         {runs.length === 0 ? (
           <CardContent>
@@ -77,8 +100,8 @@ export default async function CursorRunsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               }
-              title="No cursor runs found"
-              description="Cursor runs will appear here once agents start working on tasks"
+              title={!githubConfigured ? 'GitHub not configured' : 'No cursor runs found'}
+              description={!githubConfigured ? 'Configure GitHub credentials to view cursor runs' : 'Cursor runs will appear here once agents start working on tasks'}
             />
           </CardContent>
         ) : (

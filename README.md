@@ -65,12 +65,22 @@ docker compose ps
 # Expected: Both control-api and dashboard should be "Up"
 
 # Test API health
-curl -s http://127.0.0.1:8780/health
-# Expected output: {"status":"ok"}
+curl -s http://127.0.0.1:8780/health | jq
+# Expected: {"status":"ok"}
 
 # Test API info endpoint
 curl -s http://127.0.0.1:8780/ | jq
 # Expected: JSON with gateway_connected, github_ok, repo, server_time
+
+# Test tasks endpoint (always returns JSON)
+curl -s http://127.0.0.1:8780/tasks | jq
+# Expected: {"items":[],"github_ok":false} (if GitHub not configured)
+# Expected: {"items":[...],"github_ok":true} (if GitHub configured)
+
+# Test cursor-runs endpoint (always returns JSON)
+curl -s http://127.0.0.1:8780/cursor-runs | jq
+# Expected: {"items":[],"github_ok":false} (if GitHub not configured)
+# Expected: {"items":[...],"github_ok":true} (if GitHub configured)
 
 # Run full smoke test (if available)
 ./scripts/smoke.sh
@@ -152,16 +162,41 @@ docker compose down
 docker compose down -v
 ```
 
+## API Testing
+
+All endpoints return JSON, even with missing/invalid credentials:
+
+```bash
+# System info (always works)
+curl -s http://127.0.0.1:8780/ | jq
+
+# Tasks (returns empty list if GitHub not configured)
+curl -s http://127.0.0.1:8780/tasks | jq
+curl -s 'http://127.0.0.1:8780/tasks?state=closed' | jq
+curl -s 'http://127.0.0.1:8780/tasks?state=all' | jq
+
+# Cursor runs (returns empty list if GitHub not configured)
+curl -s http://127.0.0.1:8780/cursor-runs | jq
+
+# Create task (requires GitHub configuration)
+curl -s http://127.0.0.1:8780/tasks/cursor \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Test task","body":"Description here"}' | jq
+```
+
 ## Troubleshooting
 
 ### Dashboard shows "Unable to connect to control API"
 - Check API is running: `docker compose ps`
-- Check API health: `curl http://127.0.0.1:8780/health`
+- Check API health: `curl -s http://127.0.0.1:8780/health | jq`
 - View API logs: `docker compose logs control-api`
 
-### Tasks page shows "GitHub not configured"
-- Ensure GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO are set in `.env`
+### Tasks/Cursor runs show empty lists
+- This is normal if GitHub is not configured
+- Check GitHub status: `curl -s http://127.0.0.1:8780/ | jq .github_ok`
+- If false, ensure GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO are set in `.env`
 - Restart services: `docker compose restart`
+- Verify token: `curl -s http://127.0.0.1:8780/tasks | jq`
 
 ### Gateway shows "Disconnected"
 - This is normal if OpenClaw Gateway is not running
